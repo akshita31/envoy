@@ -24,6 +24,7 @@
 #include "envoy/upstream/upstream.h"
 
 #include "source/common/common/assert.h"
+#include "source/common/buffer/buffer_impl.h"
 #include "source/common/common/logger.h"
 #include "source/common/formatter/substitution_format_string.h"
 #include "source/common/http/header_map_impl.h"
@@ -661,6 +662,9 @@ protected:
   uint32_t connect_attempts_{};
   bool connecting_{};
   bool downstream_closed_{};
+  bool receive_before_connect_{false};
+  bool early_data_end_stream_{false};
+  Buffer::OwnedImpl early_data_buffer_{};
   HttpStreamDecoderFilterCallbacks upstream_decoder_filter_callbacks_;
 };
 
