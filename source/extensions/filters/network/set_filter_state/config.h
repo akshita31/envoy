@@ -16,6 +16,7 @@ public:
 
   // Network::ReadFilter
   Network::FilterStatus onData(Buffer::Instance&, bool) override {
+    config_->updateFilterState({}, read_callbacks_->connection().streamInfo());
     return Network::FilterStatus::Continue;
   }
   Network::FilterStatus onNewConnection() override;
