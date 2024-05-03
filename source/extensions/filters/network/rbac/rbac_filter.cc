@@ -90,7 +90,7 @@ Network::FilterStatus RoleBasedAccessControlFilter::onData(Buffer::Instance&, bo
       callbacks_->connection().streamInfo().dynamicMetadata().DebugString());
   const auto* filter_state = callbacks_->connection().streamInfo().filterState()->getDataReadOnlyGeneric("DOWNSTREAM_IDENTITY");
   if (filter_state != nullptr) {
-    const auto string_value = object->serializeAsString();
+    const auto string_value = filter_state->serializeAsString();
     if (string_value) {
       ENVOY_LOG(debug, "filter state downstream identity: {}", *string_value);
     }
