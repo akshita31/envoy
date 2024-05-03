@@ -88,9 +88,15 @@ Network::FilterStatus RoleBasedAccessControlFilter::onData(Buffer::Instance&, bo
                 callbacks_->connection().ssl()->subjectPeerCertificate()
           : "none",
       callbacks_->connection().streamInfo().dynamicMetadata().DebugString());
-  Envoy::Extensions::NetworkFilters::Golang::GoStringFilterState* filter_state = callbacks_->connection().streamInfo().filterState()->getDataReadOnly<Envoy::Extensions::NetworkFilters::Golang::GoStringFilterState>("DOWNSTREAM_IDENTITY");
+  const auto* filter_state = callbacks_->connection().streamInfo().filterState()->getDataReadOnlyGeneric("DOWNSTREAM_IDENTITY");
   if (filter_state != nullptr) {
-    ENVOY_LOG(debug, "filter state downstream identity: {}", filter_state->value());
+    const auto string_value = object->serializeAsString();
+    if (string_value) {
+      ENVOY_LOG(debug, "filter state downstream identity: {}", *string_value);
+    }
+    else {
+      ENVOY_LOG(debug, "filter state downstream identity: empty");
+    }
   } else {
     ENVOY_LOG(debug, "filter state downstream identity: not found");
   }
