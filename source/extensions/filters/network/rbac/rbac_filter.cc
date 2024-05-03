@@ -88,7 +88,7 @@ Network::FilterStatus RoleBasedAccessControlFilter::onData(Buffer::Instance&, bo
                 callbacks_->connection().ssl()->subjectPeerCertificate()
           : "none",
       callbacks_->connection().streamInfo().dynamicMetadata().DebugString());
-  filter_state = callbacks_->connection().streamInfo().filterState()->getDataReadOnly<GoStringFilterState>("DOWNSTREAM_IDENTITY");
+  std::GoStringFilterState* filter_state = callbacks_->connection().streamInfo().filterState()->getDataReadOnly<GoStringFilterState>("DOWNSTREAM_IDENTITY");
   if (filter_state != nullptr) {
     ENVOY_LOG(debug, "filter state downstream identity: {}", filter_state->value());
   } else {
