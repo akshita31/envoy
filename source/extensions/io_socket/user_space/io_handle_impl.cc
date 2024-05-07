@@ -380,6 +380,8 @@ void PassthroughStateImpl::mergeInto(envoy::config::core::v3::Metadata& metadata
   }
   for (const auto& object : filter_state_objects_) {
     // This should not throw as stream info is new and filter objects are uniquely named.
+    ENVOY_LOG(trace, "Copying filter state from passthrough state to filter state. Name: {}.",
+              object.name_);
     filter_state.setData(object.name_, object.data_, object.state_type_,
                          StreamInfo::FilterState::LifeSpan::Connection, object.stream_sharing_);
   }
