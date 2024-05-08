@@ -157,6 +157,26 @@ Network::FilterStatus RoleBasedAccessControlFilter::onData(Buffer::Instance&, bo
   return Network::FilterStatus::Continue;
 }
 
+Network::FilterStatus RoleBasedAccessControlFilter::onNewConnection() {
+    // Stop iteration onNewConnection()
+    if (!callbacks_->connection().ssl()) {
+      return Network::FilterStatus::Continue;
+    } else {
+      // Otherwise we need to wait for handshake to be complete before proceeding.
+      return Network::FilterStatus::StopIteration;
+    }
+}
+
+void RoleBasedAccessControlFilter::onEvent(Network::ConnectionEvent event) {
+  if (event != Network::ConnectionEvent::Connected) {
+    return;
+  }
+  const auto connection_id = callbacks_->connection().id();
+  ENVOY_LOG(debug, "RBAC onEvent is called. Connection ID: {}", connection_id);
+  ASSERT(callbacks_->connection().ssl());
+  callbacks_->continueReading();
+}
+
 void RoleBasedAccessControlFilter::setDynamicMetadata(std::string shadow_engine_result,
                                                       std::string shadow_policy_id) {
   ProtobufWkt::Struct metrics;

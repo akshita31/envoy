@@ -75,7 +75,8 @@ using RoleBasedAccessControlFilterConfigSharedPtr =
  * Implementation of a basic RBAC network filter.
  */
 class RoleBasedAccessControlFilter : public Network::ReadFilter,
-                                     public Logger::Loggable<Logger::Id::rbac> {
+                                     public Logger::Loggable<Logger::Id::rbac>,
+                                     public Network::ConnectionCallbacks {
 
 public:
   RoleBasedAccessControlFilter(RoleBasedAccessControlFilterConfigSharedPtr config)
@@ -84,12 +85,17 @@ public:
 
   // Network::ReadFilter
   Network::FilterStatus onData(Buffer::Instance& data, bool end_stream) override;
-  Network::FilterStatus onNewConnection() override { return Network::FilterStatus::Continue; };
+  Network::FilterStatus onNewConnection() override;
+
   void initializeReadFilterCallbacks(Network::ReadFilterCallbacks& callbacks) override {
     callbacks_ = &callbacks;
   }
 
   void setDynamicMetadata(std::string shadow_engine_result, std::string shadow_policy_id);
+
+  void onEvent(Network::ConnectionEvent event) override;
+  void onAboveWriteBufferHighWatermark() override {}
+  void onBelowWriteBufferLowWatermark() override {}
 
 private:
   RoleBasedAccessControlFilterConfigSharedPtr config_;
