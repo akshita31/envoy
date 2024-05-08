@@ -725,6 +725,9 @@ Network::FilterStatus Filter::onNewConnection() {
       std::make_shared<StreamInfo::StreamIdProviderImpl>(config_->randomGenerator().uuid()));
 
   ASSERT(upstream_ == nullptr);
+
+  // Disable read until the upstream is created
+  read_callbacks_->connection().readDisable(true);
   route_ = pickRoute();
   return establishUpstreamConnection();
 }
