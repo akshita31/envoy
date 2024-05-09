@@ -89,6 +89,7 @@ public:
 
   void initializeReadFilterCallbacks(Network::ReadFilterCallbacks& callbacks) override {
     callbacks_ = &callbacks;
+    callbacks_->connection().addConnectionCallbacks(*this);
   }
 
   void setDynamicMetadata(std::string shadow_engine_result, std::string shadow_policy_id);
