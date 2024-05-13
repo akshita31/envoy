@@ -175,8 +175,8 @@ void RoleBasedAccessControlFilter::onEvent(Network::ConnectionEvent event) {
   }
   const auto connection_id = callbacks_->connection().id();
   ENVOY_LOG(debug, "RBAC onEvent is called. Connection ID: {}", connection_id);
-  ASSERT(callbacks_->connection().ssl());
-  callbacks_->continueReading();
+  //ASSERT(callbacks_->connection().ssl());
+  // callbacks_->continueReading();
 }
 
 void RoleBasedAccessControlFilter::setDynamicMetadata(std::string shadow_engine_result,
