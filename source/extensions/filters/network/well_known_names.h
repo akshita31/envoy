@@ -59,6 +59,8 @@ public:
   const std::string ZooKeeperProxy = "envoy.filters.network.zookeeper_proxy";
   // WebAssembly filter
   const std::string Wasm = "envoy.filters.network.wasm";
+  // Custom TLS Inspector Filter
+  const std::string CustomTlsInspector = "envoy.filters.network.custom_tls_inspector";
 };
 
 using NetworkFilterNames = ConstSingleton<NetworkFilterNameValues>;
