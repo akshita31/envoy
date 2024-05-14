@@ -4,6 +4,7 @@
 #include "envoy/server/filter_config.h"
 
 #include "source/extensions/filters/network/custom_tls_inspector/custom_tls_inspector.h"
+#include "source/extensions/filters/network/custom_tls_inspector/config.h"
 
 namespace Envoy {
 namespace Extensions {
@@ -11,21 +12,16 @@ namespace NetworkFilters {
 namespace CustomTlsInspector {
 
 Network::FilterFactoryCb CustomTlsInspectorConfigFactory::createFilterFactoryFromProto(
-    const Protobuf::Message& message, Server::Configuration::FactoryContext& context) {
+    const Protobuf::Message&, Server::Configuration::FactoryContext& context) {
 
-    // downcast it to the TLS inspector config
-    const auto& proto_config = MessageUtil::downcastAndValidate<
-    const envoy::extensions::filters::network::custom_tls_inspector::v3::CustomTlsInspector&>(
-        message, context.messageValidationVisitor());
-
-    ConfigSharedPtr config = std::make_shared<Config>(context.scope(), proto_config);
+    ConfigSharedPtr config = std::make_shared<Config>(context.scope());
     return [config](Network::FilterManager& filter_manager) -> void {
     filter_manager.addReadFilter(std::make_shared<Filter>(config));
   };
 }
 
 ProtobufTypes::MessagePtr CustomTlsInspectorConfigFactory::createEmptyConfigProto() {
-  return std::make_unique<envoy::extensions::filters::network::custom_tls_inspector::v3::CustomTlsInspector>();
+  return ProtobufTypes::MessagePtr{new Envoy::ProtobufWkt::Struct()};
 }
 
 /**
