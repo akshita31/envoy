@@ -137,37 +137,38 @@ void Filter::onServername(absl::string_view name) {
   clienthello_success_ = true;
 }
 
-Network::FilterStatus Filter::onData(Buffer::Instance&, bool) {
+Network::FilterStatus Filter::onData(Buffer::Instance& buffer, bool) {
   // todo: change this to use the instance buffer
   ENVOY_LOG(trace, "custom tls inspector: on data");
-  onServername("google.com");
-  return Network::FilterStatus::Continue;
-  // auto raw_slice = buffer.rawSlice();
-  // ENVOY_LOG(trace, "tls inspector: recv: {}", raw_slice.len_);
+  //onServername("google.com");
+  //return Network::FilterStatus::Continue;
+  auto raw_slice = buffer.frontSlice();
+  // this is stupid as we will keep reading front slice
+  ENVOY_LOG(trace, "custom tls inspector: recv: {}", raw_slice.len_);
 
-  // // Because we're doing a MSG_PEEK, data we've seen before gets returned every time, so
-  // // skip over what we've already processed.
-  // if (static_cast<uint64_t>(raw_slice.len_) > read_) {
-  //   const uint8_t* data = static_cast<const uint8_t*>(raw_slice.mem_) + read_;
-  //   const size_t len = raw_slice.len_ - read_;
-  //   const uint64_t bytes_already_processed = read_;
-  //   read_ = raw_slice.len_;
-  //   ParseState parse_state = parseClientHello(data, len, bytes_already_processed);
-  //   switch (parse_state) {
-  //   case ParseState::Error:
-  //     cb_->connection().close(Network::ConnectionCloseType::NoFlush, "tls_error");
-  //     // cb_->socket().ioHandle().close();
-  //     return Network::FilterStatus::StopIteration;
-  //   case ParseState::Done:
-  //     // Finish the inspect.
-  //     return Network::FilterStatus::Continue;
-  //   case ParseState::Continue:
-  //     // Do nothing but wait for the next event.
-  //     return Network::FilterStatus::StopIteration;
-  //   }
-  //   IS_ENVOY_BUG("unexpected tcp filter parse_state");
-  // }
-  // return Network::FilterStatus::StopIteration;
+  // Because we're doing a MSG_PEEK, data we've seen before gets returned every time, so
+  // skip over what we've already processed.
+  if (static_cast<uint64_t>(raw_slice.len_) > read_) {
+    const uint8_t* data = static_cast<const uint8_t*>(raw_slice.mem_) + read_;
+    const size_t len = raw_slice.len_ - read_;
+    const uint64_t bytes_already_processed = read_;
+    read_ = raw_slice.len_;
+    ParseState parse_state = parseClientHello(data, len, bytes_already_processed);
+    switch (parse_state) {
+    case ParseState::Error:
+      cb_->connection().close(Network::ConnectionCloseType::NoFlush, "tls_error");
+      // cb_->socket().ioHandle().close();
+      return Network::FilterStatus::StopIteration;
+    case ParseState::Done:
+      // Finish the inspect.
+      return Network::FilterStatus::Continue;
+    case ParseState::Continue:
+      // Do nothing but wait for the next event.
+      return Network::FilterStatus::StopIteration;
+    }
+    IS_ENVOY_BUG("unexpected tcp filter parse_state");
+  }
+  return Network::FilterStatus::StopIteration;
 }
 
 ParseState Filter::parseClientHello(const void* data, size_t len,
