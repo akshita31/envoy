@@ -160,13 +160,15 @@ Network::FilterStatus RoleBasedAccessControlFilter::onData(Buffer::Instance&, bo
 Network::FilterStatus RoleBasedAccessControlFilter::onNewConnection() {
     // Stop iteration onNewConnection()
     if (!callbacks_->connection().ssl()) {
-      ENVOY_LOG(debug, "RBAC onNewConnection is called. Connection ID: {}. Continue Connection is not ssl", callbacks_->connection().id());
-      return Network::FilterStatus::Continue;
+      ENVOY_LOG(debug, "RBAC onNewConnection is called. Connection ID: {}. Connection is not ssl", callbacks_->connection().id());
+      //return Network::FilterStatus::Continue;
     } else {
       // Otherwise we need to wait for handshake to be complete before proceeding.
-      ENVOY_LOG(debug, "RBAC onNewConnection is called. Connection ID: {}. Stop Connection is ssl", callbacks_->connection().id());
-      return Network::FilterStatus::StopIteration;
+      ENVOY_LOG(debug, "RBAC onNewConnection is called. Connection ID: {}. Connection is ssl", callbacks_->connection().id());
+      //return Network::FilterStatus::StopIteration;
     }
+
+    return Network::FilterStatus::Continue;
 }
 
 void RoleBasedAccessControlFilter::onEvent(Network::ConnectionEvent event) {
