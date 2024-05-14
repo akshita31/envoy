@@ -138,12 +138,16 @@ void Filter::onServername(absl::string_view name) {
 }
 
 Network::FilterStatus Filter::onData(Buffer::Instance& buffer, bool) {
-  // todo: change this to use the instance buffer
+
   ENVOY_LOG(trace, "custom tls inspector: on data");
-  //onServername("google.com");
-  //return Network::FilterStatus::Continue;
+
+  if (clienthello_success_) {
+    ENVOY_LOG(trace, "custom tls inspector: clienthello_success_");
+    return Network::FilterStatus::Continue;
+  }
+
+  // to do: this needs to be changed as client hello might be in multiple slices
   auto raw_slice = buffer.frontSlice();
-  // this is stupid as we will keep reading front slice
   ENVOY_LOG(trace, "custom tls inspector: recv: {}", raw_slice.len_);
 
   // Because we're doing a MSG_PEEK, data we've seen before gets returned every time, so
@@ -161,6 +165,7 @@ Network::FilterStatus Filter::onData(Buffer::Instance& buffer, bool) {
       return Network::FilterStatus::StopIteration;
     case ParseState::Done:
       // Finish the inspect.
+      // todo(akshita): do we need to call continueReading() here?
       return Network::FilterStatus::Continue;
     case ParseState::Continue:
       // Do nothing but wait for the next event.
