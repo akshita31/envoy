@@ -102,7 +102,6 @@ void Filter::onServername(absl::string_view name) {
 }
 
 Network::FilterStatus Filter::onData(Buffer::Instance& buffer, bool) {
-
   ENVOY_LOG(trace, "custom tls inspector: on data");
 
   if (clienthello_success_) {
@@ -146,6 +145,10 @@ Network::FilterStatus Filter::onData(Buffer::Instance& buffer, bool) {
   }
 
   // Whole buffer is read but couldnt complete ClientHello, wait for next data
+  // Somehow until the internal listener filter chain doesnt get initialized,
+  // the next onData() call is not coming.
+  // But if we continue reading here, then the RBAC filter will not be able
+  // to execute based on the requestedServerName if this one doesnt set it.
   return Network::FilterStatus::StopIteration;
 }
 
