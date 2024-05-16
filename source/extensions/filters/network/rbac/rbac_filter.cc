@@ -104,22 +104,6 @@ Network::FilterStatus RoleBasedAccessControlFilter::onData(Buffer::Instance&, bo
     ENVOY_LOG(debug, "filter state downstream identity: not found");
   }
 
-  const auto upstream_info = callbacks_->connection().streamInfo().upstreamInfo();
-  if (upstream_info != nullptr && upstream_info->upstreamFilterState() != nullptr){
-    const auto* upstream_filter_state = upstream_info->upstreamFilterState()->getDataReadOnlyGeneric("DOWNSTREAM_IDENTITY");
-    if (upstream_filter_state != nullptr) {
-      const auto string_value_1 = upstream_filter_state->serializeAsString();
-      if (string_value_1) {
-        ENVOY_LOG(debug, "[UpstreamFilterState] filter state downstream identity: {}", *string_value_1);
-      }
-      else {
-        ENVOY_LOG(debug, "[UpstreamFilterState] filter state downstream identity: empty");
-      }
-    } else {
-      ENVOY_LOG(debug, "[UpstreamFilterState] filter state downstream identity: not found");
-    }
-  }
-
   std::string log_policy_id = "none";
   // When the enforcement type is continuous always do the RBAC checks. If it is a one time check,
   // run the check once and skip it for subsequent onData calls.
@@ -178,7 +162,6 @@ void RoleBasedAccessControlFilter::onEvent(Network::ConnectionEvent event) {
   const auto connection_id = callbacks_->connection().id();
   ENVOY_LOG(debug, "RBAC onEvent is called. Connection ID: {}", connection_id);
   //ASSERT(callbacks_->connection().ssl());
-  // callbacks_->continueReading();
 }
 
 void RoleBasedAccessControlFilter::setDynamicMetadata(std::string shadow_engine_result,

@@ -53,7 +53,6 @@ public:
 
   const TlsInspectorStats& stats() const { return stats_; }
   bssl::UniquePtr<SSL> newSsl();
-  bool enableJA3Fingerprinting() const { return enable_ja3_fingerprinting_; }
   uint32_t maxClientHelloSize() const { return max_client_hello_size_; }
   uint32_t initialReadBufferSize() const { return initial_read_buffer_size_; }
 
@@ -64,7 +63,6 @@ public:
 private:
   TlsInspectorStats stats_;
   bssl::UniquePtr<SSL_CTX> ssl_ctx_;
-  const bool enable_ja3_fingerprinting_;
   const uint32_t max_client_hello_size_;
   const uint32_t initial_read_buffer_size_;
 };
@@ -87,9 +85,7 @@ public:
 
 private:
   ParseState parseClientHello(const void* data, size_t len, uint64_t bytes_already_processed);
-  void onALPN(const unsigned char* data, unsigned int len);
   void onServername(absl::string_view name);
-  void createJA3Hash(const SSL_CLIENT_HELLO* ssl_client_hello);
   uint32_t maxConfigReadBytes() const { return config_->maxClientHelloSize(); }
 
   ConfigSharedPtr config_;
@@ -97,11 +93,13 @@ private:
 
   bssl::UniquePtr<SSL> ssl_;
   uint64_t read_{0};
+  size_t buffer_elements_read_so_far{0};
   bool alpn_found_{false};
   bool clienthello_success_{false};
   // We dynamically adjust the number of bytes requested by the filter up to the
   // maxConfigReadBytes.
   uint32_t requested_read_bytes_;
+  uint64_t bytes_already_processed_;
 
   // Allows callbacks on the SSL_CTX to set fields in this class.
   friend class Config;
