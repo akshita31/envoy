@@ -72,12 +72,57 @@ public:
   std::unique_ptr<Buffer::Instance> buffer_;
 };
 
-TEST_F(CustomTlsInspectorTest, SNIRegistered) {
+TEST_F(CustomTlsInspectorTest, NoClientHelloPacket) {
   init();
-  Buffer::OwnedImpl buffer("test");
+  Buffer::OwnedImpl buffer("not a client hello");
+  EXPECT_EQ(Network::FilterStatus::Continue, filter_->onNewConnection());
+  EXPECT_EQ(Network::FilterStatus::Continue, filter_->onData(buffer, false));
+
+  EXPECT_EQ(1, cfg_->stats().tls_not_found_.value());
+}
+
+TEST_F(CustomTlsInspectorTest, EntireClientHelloInFirstOnDataCall) {
+  init();
+  Buffer::OwnedImpl buffer("");
+  const std::string servername("example.com");
+  std::vector<uint8_t> client_hello = Tls::Test::generateClientHello(
+       TLS1_VERSION, TLS1_3_VERSION, servername, "");
+  // copy the entire client hello message into buffer
+  buffer.add(client_hello.data(), client_hello.size());
+
+  EXPECT_EQ(Network::FilterStatus::Continue, filter_->onNewConnection());
+  EXPECT_EQ(Network::FilterStatus::Continue, filter_->onData(buffer, false));
+
+  EXPECT_EQ(1, cfg_->stats().tls_found_.value());
+  EXPECT_EQ(1, cfg_->stats().sni_found_.value());
+  EXPECT_EQ(1, cfg_->stats().alpn_not_found_.value());
+
+  // todo: Check the server name is set correctly
+}
+
+TEST_F(CustomTlsInspectorTest, ClientHelloInMultipleOnDataCalls) {
+  init();
+  Buffer::OwnedImpl buffer("");
+
+  // Call with empty buffer should result in waiting for more data
   EXPECT_EQ(Network::FilterStatus::Continue, filter_->onNewConnection());
   EXPECT_EQ(Network::FilterStatus::StopIteration, filter_->onData(buffer, false));
+
+  const std::string servername("example.com");
+  std::vector<uint8_t> client_hello = Tls::Test::generateClientHello(
+       TLS1_VERSION, TLS1_3_VERSION, servername, "");
+  // copy the entire client hello message into buffer
+  buffer.add(client_hello.data(), client_hello.size());
+
+  // Call with buffer containing the entire client hello message should parse the server name
+  // and allow the iteration to continue
+  EXPECT_EQ(Network::FilterStatus::Continue, filter_->onData(buffer, false));
+  EXPECT_EQ(1, cfg_->stats().tls_found_.value());
+  EXPECT_EQ(1, cfg_->stats().sni_found_.value());
+  EXPECT_EQ(1, cfg_->stats().alpn_not_found_.value());
+  // todo: Check the server name is set correctly
 }
+
 //   void mockSysCallForPeek(std::vector<uint8_t>& client_hello, bool windows_recv = false) {
 //     (void)windows_recv;
 //     EXPECT_CALL(os_sys_calls_, recv(42, _, _, MSG_PEEK))

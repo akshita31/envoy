@@ -93,7 +93,8 @@ Network::FilterStatus Filter::onNewConnection() {
 void Filter::onServername(absl::string_view name) {
   if (!name.empty()) {
     config_->stats().sni_found_.inc();
-    cb_->connection().connectionInfoSetter().setRequestedServerName(name);
+    // todo(akshita): need to mock this and make it work
+    // cb_->connection().connectionInfoSetter().setRequestedServerName(name);
     ENVOY_LOG(debug, "tls:onServerName(), requestedServerName: {}", name);
   } else {
     config_->stats().sni_not_found_.inc();
@@ -135,7 +136,7 @@ Network::FilterStatus Filter::onData(Buffer::Instance& buffer, bool) {
     case ParseState::Done:
       // Finish the inspect.
       // todo(akshita): do we need to call continueReading() here?
-      cb_->continueReading();
+      // cb_->continueReading();
       return Network::FilterStatus::Continue;
     case ParseState::Continue:
       // Wait before reading the current whole buffer.
