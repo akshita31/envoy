@@ -93,8 +93,7 @@ Network::FilterStatus Filter::onNewConnection() {
 void Filter::onServername(absl::string_view name) {
   if (!name.empty()) {
     config_->stats().sni_found_.inc();
-    // todo(akshita): need to mock this and make it work
-    // cb_->connection().connectionInfoSetter().setRequestedServerName(name);
+    cb_->connection().connectionInfoSetter().setRequestedServerName(name);
     ENVOY_LOG(debug, "tls:onServerName(), requestedServerName: {}", name);
   } else {
     config_->stats().sni_not_found_.inc();
@@ -111,23 +110,28 @@ Network::FilterStatus Filter::onData(Buffer::Instance& buffer, bool) {
   }
 
   // from: https://sourcegraph.com/github.com/envoyproxy/envoy@c3b0ea0b6f9f7ff76c057e035433918fda4b8d9c/-/blob/source/common/buffer/buffer_impl.cc?L27#tab=references
-  // It looks like data is always added at the end of the buffer
-  // Hence we can store how many elements we have read so far from
-  // the buffer and then start reading from the next element in the buffer.
+  // It looks like data is always added at the end of the buffer.
+  // new data can be simply added in the last slice or new slice can be created
+  // and added to the buffer
+  // We need to keep pointer to the last slice as well as the size of the last slice
+  // So when the call comes, we can start reading from the last slice if it has more data
+  // and then continue
   Buffer::RawSliceVector slices = buffer.getRawSlices();
-  if (slices.size() <= buffer_elements_read_so_far) {
-    // No new data is available yet to complete the ClientHello.
-    return Network::FilterStatus::StopIteration;
-  }
   ENVOY_LOG(trace, "custom tls inspector: slices.size: {}", slices.size());
+  std::cout<<"custom tls inspector: slices.size: "<<slices.size()<<std::endl;
   // start reading the buffer after the last read slice
-  for (auto i = buffer_elements_read_so_far; i < slices.size(); i++) {
+  uint64_t bytes_to_forward = bytes_processed_in_last_slice;
+  for (auto i = index_of_last_slice_read; i < slices.size(); i++) {
     const Buffer::RawSlice& slice = slices[i];
     ENVOY_LOG(trace, "custom tls inspector: recv: {}", slice.len_);
-    const uint8_t* slice_mem = static_cast<const uint8_t*>(slice.mem_);
-    const size_t slice_len = slice.len_;
+    const uint8_t* slice_mem = static_cast<const uint8_t*>(slice.mem_) + bytes_to_forward;
+    const size_t slice_len = slice.len_ - bytes_to_forward;
     ParseState parse_state = parseClientHello(slice_mem, slice_len, bytes_already_processed_);
-    buffer_elements_read_so_far = i;
+    std::cout<<"custom tls inspector: recv: "<<slice.len_<<std::endl;
+    std::cout<<"custom tls inspector: parse_state: "<<static_cast<typename std::underlying_type<ParseState>::type>(parse_state)<<std::endl;
+    index_of_last_slice_read = i;
+    bytes_processed_in_last_slice = slice.len_;
+    bytes_to_forward = 0;
     bytes_already_processed_ += slice_len;
     switch (parse_state) {
     case ParseState::Error:
@@ -185,13 +189,10 @@ ParseState Filter::parseClientHello(const void* data, size_t len,
       }
       return ParseState::Continue;
     case SSL_ERROR_SSL:
+    std::cout<<"SSL_ERROR_SSL"<<std::endl;
       if (clienthello_success_) {
+        std::cout<<"clienthello_success_"<<std::endl;
         config_->stats().tls_found_.inc();
-        if (alpn_found_) {
-          config_->stats().alpn_found_.inc();
-        } else {
-          config_->stats().alpn_not_found_.inc();
-        }
         // todo(akshita): maybe this is not needed
         //cb_->socket().setDetectedTransportProtocol("tls");
       } else {

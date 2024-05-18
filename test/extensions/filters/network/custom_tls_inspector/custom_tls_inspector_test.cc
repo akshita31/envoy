@@ -33,7 +33,35 @@ namespace Envoy {
 namespace Extensions {
 namespace NetworkFilters {
 namespace CustomTlsInspector {
-namespace {
+
+class MockConnectionInfoSetter : public Network::ConnectionInfoSetter {
+public:
+  MOCK_METHOD(const Network::Address::InstanceConstSharedPtr&, localAddress, (), (const, override));
+  MOCK_METHOD(bool, localAddressRestored, (), (const, override));
+  MOCK_METHOD(const Network::Address::InstanceConstSharedPtr&, remoteAddress, (), (const, override));
+  MOCK_METHOD(const Network::Address::InstanceConstSharedPtr&, directRemoteAddress, (), (const, override));
+  MOCK_METHOD(absl::string_view, requestedServerName, (), (const, override));
+  MOCK_METHOD(absl::optional<uint64_t>, connectionID, (), (const, override));
+  MOCK_METHOD(absl::optional<absl::string_view>, interfaceName, (), (const, override));
+  MOCK_METHOD(void, dumpState, (std::ostream& os, int indent_level), (const, override));
+  MOCK_METHOD(Ssl::ConnectionInfoConstSharedPtr, sslConnection, (), (const, override));
+  MOCK_METHOD(absl::string_view, ja3Hash, (), (const, override));
+  MOCK_METHOD(const absl::optional<std::chrono::milliseconds>&, roundTripTime, (), (const, override));
+  MOCK_METHOD(OptRef<const Network::FilterChainInfo>, filterChainInfo, (), (const, override));
+  MOCK_METHOD(OptRef<const Network::ListenerInfo>, listenerInfo, (), (const, override));
+  MOCK_METHOD(void, setLocalAddress, (const Network::Address::InstanceConstSharedPtr& local_address), (override));
+  MOCK_METHOD(void, restoreLocalAddress, (const Network::Address::InstanceConstSharedPtr& local_address), (override));
+  MOCK_METHOD(void, setRemoteAddress, (const Network::Address::InstanceConstSharedPtr& remote_address), (override));
+  MOCK_METHOD(void, setRequestedServerName, (const absl::string_view requested_server_name), (override));
+  MOCK_METHOD(void, enableSettingInterfaceName, (const bool enable), (override));
+  MOCK_METHOD(void, maybeSetInterfaceName, (Network::IoHandle& ioHandle), (override));
+  MOCK_METHOD(void, setConnectionID, (uint64_t id), (override));
+  MOCK_METHOD(void, setSslConnection, (const Ssl::ConnectionInfoConstSharedPtr& ssl_connection_info), (override));
+  MOCK_METHOD(void, setJA3Hash, (const absl::string_view ja3_hash), (override));
+  MOCK_METHOD(void, setRoundTripTime, (std::chrono::milliseconds round_trip_time), (override));
+  MOCK_METHOD(void, setFilterChainInfo, (Network::FilterChainInfoConstSharedPtr filter_chain_info), (override));
+  MOCK_METHOD(void, setListenerInfo, (std::shared_ptr<const Network::ListenerInfo> listener_info), (override));
+};
 
 class CustomTlsInspectorTest : public testing::TestWithParam<std::tuple<uint16_t, uint16_t>> {
 public:
@@ -45,17 +73,9 @@ public:
 
   void init() {
     filter_ = std::make_shared<Filter>(cfg_);
-
-    // EXPECT_CALL(cb_, socket()).WillRepeatedly(ReturnRef(socket_));
-    // EXPECT_CALL(socket_, ioHandle()).WillRepeatedly(ReturnRef(*io_handle_));
-    // EXPECT_CALL(dispatcher_,
-    //             createFileEvent_(_, _, Event::PlatformDefaultTriggerType,
-    //                              Event::FileReadyType::Read | Event::FileReadyType::Closed))
-    //     .WillOnce(
-    //         DoAll(SaveArg<1>(&file_event_callback_), ReturnNew<NiceMock<Event::MockFileEvent>>()));
+    EXPECT_CALL(cb_, connection()).WillRepeatedly(ReturnRef(connection_));
+    EXPECT_CALL(connection_, connectionInfoSetter()).WillRepeatedly(ReturnRef(connection_info_setter_));
     buffer_ = std::make_unique<Buffer::OwnedImpl>();
-        // *io_handle_, dispatcher_, [](bool) {}, [](Network::ListenerFilterBuffer&) {},
-        // cfg_->initialReadBufferSize());
     filter_->initializeReadFilterCallbacks(cb_);
   }
 
@@ -66,6 +86,8 @@ public:
   std::shared_ptr<Filter> filter_;
   Network::MockReadFilterCallbacks cb_;
   Network::MockConnectionSocket socket_;
+  MockConnectionInfoSetter connection_info_setter_;
+  NiceMock<Envoy::Network::MockConnection> connection_;
   NiceMock<Event::MockDispatcher> dispatcher_;
   Event::FileReadyCb file_event_callback_;
   Network::IoHandlePtr io_handle_;
@@ -89,38 +111,48 @@ TEST_F(CustomTlsInspectorTest, EntireClientHelloInFirstOnDataCall) {
        TLS1_VERSION, TLS1_3_VERSION, servername, "");
   // copy the entire client hello message into buffer
   buffer.add(client_hello.data(), client_hello.size());
+  EXPECT_CALL(connection_info_setter_, setRequestedServerName(servername)).Times(1);
 
   EXPECT_EQ(Network::FilterStatus::Continue, filter_->onNewConnection());
   EXPECT_EQ(Network::FilterStatus::Continue, filter_->onData(buffer, false));
 
   EXPECT_EQ(1, cfg_->stats().tls_found_.value());
   EXPECT_EQ(1, cfg_->stats().sni_found_.value());
-  EXPECT_EQ(1, cfg_->stats().alpn_not_found_.value());
-
-  // todo: Check the server name is set correctly
 }
 
 TEST_F(CustomTlsInspectorTest, ClientHelloInMultipleOnDataCalls) {
   init();
+
   Buffer::OwnedImpl buffer("");
 
   // Call with empty buffer should result in waiting for more data
   EXPECT_EQ(Network::FilterStatus::Continue, filter_->onNewConnection());
   EXPECT_EQ(Network::FilterStatus::StopIteration, filter_->onData(buffer, false));
 
-  const std::string servername("example.com");
+  const std::string servername("google.com");
   std::vector<uint8_t> client_hello = Tls::Test::generateClientHello(
        TLS1_VERSION, TLS1_3_VERSION, servername, "");
-  // copy the entire client hello message into buffer
-  buffer.add(client_hello.data(), client_hello.size());
 
-  // Call with buffer containing the entire client hello message should parse the server name
-  // and allow the iteration to continue
+  std::cout<<"Size is" << client_hello.size() << std::endl;
+
+  EXPECT_CALL(connection_info_setter_, setRequestedServerName(servername)).Times(1);
+  for (size_t i = 1; i <= client_hello.size(); i++) {
+    buffer.add(client_hello.data() + i - 1, 1);
+    std::cout << "i: " << i  << std::endl;
+    auto state = filter_->onData(buffer, false);
+    std:: cout<< static_cast<typename std::underlying_type<Network::FilterStatus>::type>(state) << std::endl;
+    if (i < client_hello.size()) {
+      EXPECT_EQ(Network::FilterStatus::StopIteration, state);
+    } else {
+      EXPECT_EQ(Network::FilterStatus::Continue, state);
+    }
+  }
+
+  // Any calls after the ClientHello should always return continue
+  buffer.add("more data", 9);
   EXPECT_EQ(Network::FilterStatus::Continue, filter_->onData(buffer, false));
   EXPECT_EQ(1, cfg_->stats().tls_found_.value());
   EXPECT_EQ(1, cfg_->stats().sni_found_.value());
-  EXPECT_EQ(1, cfg_->stats().alpn_not_found_.value());
-  // todo: Check the server name is set correctly
 }
 
 //   void mockSysCallForPeek(std::vector<uint8_t>& client_hello, bool windows_recv = false) {
@@ -395,8 +427,6 @@ TEST_F(CustomTlsInspectorTest, ClientHelloInMultipleOnDataCalls) {
 //   EXPECT_EQ(max_size, filter_->maxReadBytes());
 //   EXPECT_FALSE(io_handle_->isOpen());
 // }
-
-} // namespace
 } // namespace TlsInspector
 } // namespace ListenerFilters
 } // namespace Extensions

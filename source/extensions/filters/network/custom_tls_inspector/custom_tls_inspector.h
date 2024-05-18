@@ -93,13 +93,15 @@ private:
 
   bssl::UniquePtr<SSL> ssl_;
   uint64_t read_{0};
-  size_t buffer_elements_read_so_far{0};
+  size_t index_of_last_slice_read{0};
+  uint64_t bytes_processed_in_last_slice{0};
   bool alpn_found_{false};
   bool clienthello_success_{false};
   // We dynamically adjust the number of bytes requested by the filter up to the
   // maxConfigReadBytes.
   uint32_t requested_read_bytes_;
   uint64_t bytes_already_processed_;
+
 
   // Allows callbacks on the SSL_CTX to set fields in this class.
   friend class Config;
