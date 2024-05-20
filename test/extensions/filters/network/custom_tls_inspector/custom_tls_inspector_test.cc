@@ -148,11 +148,12 @@ TEST_F(CustomTlsInspectorTest, ClientHelloInMultipleOnDataCalls) {
     }
   }
 
+  EXPECT_EQ(1, cfg_->stats().tls_found_.value());
+  EXPECT_EQ(1, cfg_->stats().sni_found_.value());
+
   // Any calls after the ClientHello should always return continue
   buffer.add("more data", 9);
   EXPECT_EQ(Network::FilterStatus::Continue, filter_->onData(buffer, false));
-  EXPECT_EQ(1, cfg_->stats().tls_found_.value());
-  EXPECT_EQ(1, cfg_->stats().sni_found_.value());
 }
 
 //   void mockSysCallForPeek(std::vector<uint8_t>& client_hello, bool windows_recv = false) {
