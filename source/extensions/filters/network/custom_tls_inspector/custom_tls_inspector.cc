@@ -118,7 +118,7 @@ Network::FilterStatus Filter::onData(Buffer::Instance& buffer, bool) {
   // and then continue
   Buffer::RawSliceVector slices = buffer.getRawSlices();
   ENVOY_LOG(trace, "custom tls inspector: slices.size: {}", slices.size());
-  std::cout<<"custom tls inspector: slices.size: "<<slices.size()<<std::endl;
+  //std::cout<<"custom tls inspector: slices.size: "<<slices.size()<<std::endl;
   // start reading the buffer after the last read slice
   uint64_t bytes_to_forward = bytes_processed_in_last_slice;
   for (auto i = index_of_last_slice_read; i < slices.size(); i++) {
@@ -154,6 +154,7 @@ Network::FilterStatus Filter::onData(Buffer::Instance& buffer, bool) {
   // the next onData() call is not coming.
   // But if we continue reading here, then the RBAC filter will not be able
   // to execute based on the requestedServerName if this one doesnt set it.
+  ENVOY_LOG(trace, "custom tls inspector: Stopped Iteration, waiting for more data");
   return Network::FilterStatus::StopIteration;
 }
 
