@@ -86,8 +86,14 @@ Filter::Filter(const ConfigSharedPtr& config)
 }
 
 Network::FilterStatus Filter::onNewConnection() {
-  ENVOY_LOG(trace, "tls inspector: new connection is coming");
-  return Network::FilterStatus::Continue;
+  ENVOY_LOG(trace, "Custom TLS Inspector: on new connection");
+  ENVOY_LOG(trace, "Custom TLS Inspector: Setting read enabled so that data can be read from the socket.");
+  const Network::Connection::ReadDisableStatus read_disable_status =
+      cb_->connection().readDisable(false);
+  ASSERT(read_disable_status == Network::Connection::ReadDisableStatus::TransitionedToReadEnabled);
+  ENVOY_LOG(trace, "Custom TLS Inspector: Read enabled successfully");
+  ENVOY_LOG(trace, "Custom TLS Inspector: Returning StopIteration.");
+  return Network::FilterStatus::StopIteration;
 }
 
 void Filter::onServername(absl::string_view name) {
@@ -141,6 +147,7 @@ Network::FilterStatus Filter::onData(Buffer::Instance& buffer, bool) {
       // Finish the inspect.
       // todo(akshita): do we need to call continueReading() here?
       // cb_->continueReading();
+      cb_->connection().readDisable(true);
       return Network::FilterStatus::Continue;
     case ParseState::Continue:
       // Wait before reading the current whole buffer.
