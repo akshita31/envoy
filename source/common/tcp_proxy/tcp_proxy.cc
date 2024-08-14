@@ -261,6 +261,8 @@ void Filter::initialize(Network::ReadFilterCallbacks& callbacks, bool set_connec
           ->getDataReadOnly<StreamInfo::BoolAccessor>(ReceiveBeforeConnectKey);
   if (receive_before_connect && receive_before_connect->value()) {
     receive_before_connect_ = true;
+    // log
+    ENVOY_CONN_LOG(debug, "receive_before_connect is enabled", read_callbacks_->connection());
   } else {
     read_callbacks_->connection().readDisable(true);
   }
