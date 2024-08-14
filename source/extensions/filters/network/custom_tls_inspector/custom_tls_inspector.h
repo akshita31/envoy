@@ -79,9 +79,7 @@ public:
   // Network::ReadFilter
   Network::FilterStatus onData(Buffer::Instance&, bool) override;
   Network::FilterStatus onNewConnection() override;
-  void initializeReadFilterCallbacks(Network::ReadFilterCallbacks& callbacks) override {
-    cb_ = &callbacks;
-  }
+  void initializeReadFilterCallbacks(Network::ReadFilterCallbacks&) override;
 
 private:
   ParseState parseClientHello(const void* data, size_t len, uint64_t bytes_already_processed);

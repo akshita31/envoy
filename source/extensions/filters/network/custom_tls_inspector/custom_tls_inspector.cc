@@ -14,6 +14,7 @@
 #include "source/common/api/os_sys_calls_impl.h"
 #include "source/common/buffer/buffer_impl.h"
 #include "source/common/common/assert.h"
+#include "source/common/stream_info/bool_accessor_impl.h"
 #include "source/common/protobuf/utility.h"
 
 #include "absl/strings/str_format.h"
@@ -83,6 +84,15 @@ Filter::Filter(const ConfigSharedPtr& config)
   ENVOY_LOG(trace, "custom tls inspector: filter constructor");
   SSL_set_app_data(ssl_.get(), this);
   SSL_set_accept_state(ssl_.get());
+}
+
+void Filter::initializeReadFilterCallbacks(Network::ReadFilterCallbacks& callbacks) {
+    cb_ = &callbacks;
+    cb_->connection().streamInfo().filterState()->setData(
+          "envoy.tcp_proxy.receive_before_connect",
+          std::make_unique<StreamInfo::BoolAccessorImpl>(true),
+          StreamInfo::FilterState::StateType::Mutable,
+          StreamInfo::FilterState::LifeSpan::Connection);
 }
 
 Network::FilterStatus Filter::onNewConnection() {

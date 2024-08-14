@@ -23,6 +23,7 @@ envoy_cc_library(
         "//envoy/stats:stats_macros",
         "//source/common/protobuf:utility_lib",
         "//source/common/runtime:runtime_lib",
+        "//source/common/stream_info:bool_accessor_lib",
     ],
 )
 
