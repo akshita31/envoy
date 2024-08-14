@@ -3,8 +3,130 @@ date: April 18, 2024
 bug_fixes:
 - area: tls
   change: |
-    Fix a RELEASE_ASSERT when using :ref:`auto_sni <envoy_v3_api_field_config.core.v3.UpstreamHttpProtocolOptions.auto_sni>`
-    if the downstream request ``:authority`` was longer than 255 characters.
+    Fix build FIPS compliance when using both FIPS mode and Wasm extensions (``--define boringssl=fips`` and ``--define wasm=v8``).
+- area: ext_authz
+  change: |
+    Fix a bug where the ext_authz filter will ignore the request body when the
+    :ref:`pack_as_bytes <envoy_v3_api_field_extensions.filters.http.ext_authz.v3.BufferSettings.pack_as_bytes>` is set to true and
+    HTTP authorization service is configured.
+- area: router
+  change: |
+    Fixed the bug that updating :ref:`scope_key_builder
+    <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.ScopedRoutes.scope_key_builder>`
+    of SRDS config doesn't work and multiple HCM share the same ``scope_key_builder``.
+- area: logging
+  change: |
+    Do not display GRPC_STATUS_NUMBER for non gRPC requests.
+    This behavioral change can be temporarily reverted by setting runtime guard
+    ``envoy.reloadable_features.validate_grpc_header_before_log_grpc_status`` to false.
+- area: boringssl
+  change: |
+    Fixed the crash that occurs when contrib is compiled with ``boringssl=fips`` defined.
+
+removed_config_or_runtime:
+# *Normally occurs at the end of the* :ref:`deprecation period <deprecated>`
+- area: http
+  change: |
+    removed runtime key ``envoy.reloadable_features.closer_shadow_behavior`` and legacy code paths.
+- area: http
+  change: |
+    removed runtime key ``envoy.reloadable_features.allow_upstream_filters`` and legacy code paths.
+- area: quic
+  change: |
+    removed runtime key ``envoy.reloadable_features.quic_defer_send_in_response_to_packet`` and legacy code paths.
+- area: upstream
+  change: |
+    removed runtime key ``envoy.reloadable_features.fix_hash_key`` and legacy code paths.
+- area: logging
+  change: |
+    removed runtime key ``envoy.reloadable_features.correct_remote_address`` and legacy code paths.
+- area: http
+  change: |
+    removed runtime key ``envoy.reloadable_features.http_response_half_close`` and legacy code paths.
+- area: udp
+  change: |
+    removed runtime key ``envoy.reloadable_features.udp_proxy_connect`` and legacy code paths.
+- area: header_formatters
+  change: |
+    removed runtime key ``envoy.reloadable_features.unified_header_formatter`` and legacy code paths.
+- area: config
+  change: |
+    removed runtime key ``envoy.reloadable_features.delta_xds_subscription_state_tracking_fix`` and legacy code paths.
+
+new_features:
+- area: tcp_proxy
+  change: |
+    added :ref:`an option <config_network_filters_tcp_proxy_receive_before_connect>` to allow filters to read from the
+    downstream connection before TCP proxy has opened the upstream connection, by setting a filter state object for the key
+    ``envoy.tcp_proxy.receive_before_connect``.
+- area: access_log
+  change: |
+    added %ACCESS_LOG_TYPE% substitution string, to help distinguishing between access log records and when they are being
+    recorded. Please refer to the access log configuration documentation for more information.
+- area: access_log
+  change: |
+    added :ref:`CEL <envoy_v3_api_msg_extensions.formatter.cel.v3.Cel>` access log formatter to print CEL expression.
+- area: dynamic_forward_proxy
+  change: |
+    added :ref:`sub_clusters_config
+    <envoy_v3_api_field_extensions.clusters.dynamic_forward_proxy.v3.ClusterConfig.sub_clusters_config>` to enable
+    independent sub cluster for each host:port, with STRICT_DNS cluster type.
+- area: http
+  change: |
+    added Runtime feature ``envoy.reloadable_features.max_request_headers_size_kb`` to override the default value of
+    :ref:`max request headers size
+    <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.max_request_headers_kb>`.
+- area: load shed point
+  change: |
+    added load shed point ``envoy.load_shed_points.http_connection_manager_decode_headers`` that rejects new http streams
+    by sending a local reply.
+- area: load shed point
+  change: |
+    added load shed point ``envoy.load_shed_points.http1_server_abort_dispatch`` that rejects HTTP1 server processing of requests.
+- area: load shed point
+  change: |
+    added load shed point ``envoy.load_shed_points.http2_server_go_away_on_dispatch`` that sends
+    ``GOAWAY`` for HTTP2 server processing of requests.  When a ``GOAWAY`` frame is submitted by
+    this the counter ``http2.goaway_sent`` will be incremented.
+- area: matchers
+  change: |
+    Added :ref:`RuntimeFraction <envoy_v3_api_msg_extensions.matching.input_matchers.runtime_fraction.v3.RuntimeFraction>` input
+    matcher. It allows matching hash of the input on a runtime key.
+- area: stat_sinks
+  change: |
+    Added ``envoy.stat_sinks.open_telemetry`` stats_sink, that supports flushing metrics by the OTLP protocol,
+    for supported Open Telemetry collectors.
+- area: redis_proxy
+  change: |
+    added new configuration field :ref:`key_formatter
+    <envoy_v3_api_field_extensions.filters.network.redis_proxy.v3.RedisProxy.PrefixRoutes.Route.key_formatter>` to format redis key.
+    The field supports using %KEY% as a formatter command for substituting the redis key as part of the substitution formatter expression.
+- area: ratelimit
+  change: |
+    added new configuration field :ref:`domain
+    <envoy_v3_api_field_extensions.filters.http.ratelimit.v3.RateLimitPerRoute.domain>` to allow for setting rate limit domains on a
+    per-route basis.
+- area: access_log
+  change: |
+    added access log filter :ref:`log_type_filter <envoy_v3_api_field_config.accesslog.v3.AccessLogFilter.log_type_filter>`
+    to filter access log records based on the type of the record.
+- area: ext_proc
+  change: |
+    added new configuration field
+    :ref:`disable_clear_route_cache <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.disable_clear_route_cache>`
+    to force the ext_proc filter from clearing the route cache. Failures to clear from setting this field will be counted under the
+    clear_route_cache_disabled stat.
+- area: redis_proxy
+  change: |
+    added new field :ref:`connection_rate_limit
+    <envoy_v3_api_field_extensions.filters.network.redis_proxy.v3.RedisProxy.ConnPoolSettings.connection_rate_limit>`
+    to limit reconnection rate to redis server to avoid reconnection storm.
+- area: access_log
+  change: |
+    added additional HCM access log option :ref:`flush_log_on_tunnel_successfully_established
+    <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.HcmAccessLogOptions.flush_log_on_tunnel_successfully_established>`.
+    Enabling this option will write a log to all access loggers when HTTP tunnels (e.g. Websocket and CONNECT)
+    are successfully established.
 - area: admin
   change: |
     Fixed a bug where the config_dump & init_dump admin endpoint would return an empty response when called with empty

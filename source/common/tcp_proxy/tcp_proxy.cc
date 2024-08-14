@@ -13,6 +13,7 @@
 #include "envoy/extensions/filters/network/tcp_proxy/v3/tcp_proxy.pb.validate.h"
 #include "envoy/registry/registry.h"
 #include "envoy/stats/scope.h"
+#include "envoy/stream_info/bool_accessor.h"
 #include "envoy/upstream/cluster_manager.h"
 #include "envoy/upstream/upstream.h"
 
@@ -253,7 +254,17 @@ void Filter::initialize(Network::ReadFilterCallbacks& callbacks, bool set_connec
   // Need to disable reads so that we don't write to an upstream that might fail
   // in onData(). This will get re-enabled when the upstream connection is
   // established.
-  read_callbacks_->connection().readDisable(true);
+  auto receive_before_connect =
+      read_callbacks_->connection()
+          .streamInfo()
+          .filterState()
+          ->getDataReadOnly<StreamInfo::BoolAccessor>(ReceiveBeforeConnectKey);
+  if (receive_before_connect && receive_before_connect->value()) {
+    receive_before_connect_ = true;
+  } else {
+    read_callbacks_->connection().readDisable(true);
+  }
+
   getStreamInfo().setDownstreamBytesMeter(std::make_shared<StreamInfo::BytesMeter>());
   getStreamInfo().setUpstreamInfo(std::make_shared<StreamInfo::UpstreamInfoImpl>());
 
@@ -489,8 +500,11 @@ Network::FilterStatus Filter::establishUpstreamConnection() {
     // cluster->trafficStats()->upstream_cx_none_healthy in the latter case.
     getStreamInfo().setResponseFlag(StreamInfo::ResponseFlag::NoHealthyUpstream);
     onInitFailure(UpstreamFailureReason::NoHealthyUpstream);
+    return Network::FilterStatus::StopIteration;
   }
-  return Network::FilterStatus::StopIteration;
+  // Allow OnData() to receive data before connect if so configured
+  return receive_before_connect_ ? Network::FilterStatus::Continue
+                                 : Network::FilterStatus::StopIteration;
 }
 
 void Filter::onClusterDiscoveryCompletion(Upstream::ClusterDiscoveryStatus cluster_status) {
@@ -698,12 +712,18 @@ Network::FilterStatus Filter::onData(Buffer::Instance& data, bool end_stream) {
   if (upstream_) {
     getStreamInfo().getUpstreamBytesMeter()->addWireBytesSent(data.length());
     upstream_->encodeData(data, end_stream);
+    resetIdleTimer(); // TODO(ggreenway) PERF: do we need to reset timer on both send and receive?
+  } else if (receive_before_connect_) {
+    // Buffer data received before upstream connection exists
+    early_data_buffer_.move(data);
+    if (!early_data_end_stream_) {
+      early_data_end_stream_ = end_stream;
+    }
   }
   // The upstream should consume all of the data.
   // Before there is an upstream the connection should be readDisabled. If the upstream is
   // destroyed, there should be no further reads as well.
   ASSERT(0 == data.length());
-  resetIdleTimer(); // TODO(ggreenway) PERF: do we need to reset timer on both send and receive?
   return Network::FilterStatus::StopIteration;
 }
 
@@ -823,7 +843,13 @@ void Filter::onUpstreamConnection() {
   connecting_ = false;
   // Re-enable downstream reads now that the upstream connection is established
   // so we have a place to send downstream data to.
-  read_callbacks_->connection().readDisable(false);
+  if (!receive_before_connect_) {
+    read_callbacks_->connection().readDisable(false);
+  } else if (early_data_buffer_.length() > 0) {
+    getStreamInfo().getUpstreamBytesMeter()->addWireBytesSent(early_data_buffer_.length());
+    upstream_->encodeData(early_data_buffer_, early_data_end_stream_);
+    ASSERT(0 == early_data_buffer_.length());
+  }
 
   read_callbacks_->upstreamHost()->outlierDetector().putResult(
       Upstream::Outlier::Result::LocalOriginConnectSuccessFinal);
