@@ -717,6 +717,8 @@ Network::FilterStatus Filter::onData(Buffer::Instance& data, bool end_stream) {
     resetIdleTimer(); // TODO(ggreenway) PERF: do we need to reset timer on both send and receive?
   } else if (receive_before_connect_) {
     // Buffer data received before upstream connection exists
+    // log early data
+    ENVOY_CONN_LOG(debug, "Buffering early data", read_callbacks_->connection());
     early_data_buffer_.move(data);
     if (!early_data_end_stream_) {
       early_data_end_stream_ = end_stream;
@@ -730,6 +732,8 @@ Network::FilterStatus Filter::onData(Buffer::Instance& data, bool end_stream) {
 }
 
 Network::FilterStatus Filter::onNewConnection() {
+  //log
+  ENVOY_CONN_LOG(debug, "TCP_PROXY onNewConnection called", read_callbacks_->connection());
   if (config_->maxDownstreamConnectionDuration()) {
     connection_duration_timer_ = read_callbacks_->connection().dispatcher().createTimer(
         [this]() -> void { onMaxDownstreamConnectionDuration(); });
@@ -843,11 +847,16 @@ void Filter::onUpstreamEvent(Network::ConnectionEvent event) {
 
 void Filter::onUpstreamConnection() {
   connecting_ = false;
+  // log connection is established
+  ENVOY_CONN_LOG(debug, "upstream connected", read_callbacks_->connection());
+
   // Re-enable downstream reads now that the upstream connection is established
   // so we have a place to send downstream data to.
   if (!receive_before_connect_) {
     read_callbacks_->connection().readDisable(false);
   } else if (early_data_buffer_.length() > 0) {
+    // Log
+    ENVOY_CONN_LOG(debug, "Sending buffered early data", read_callbacks_->connection());
     getStreamInfo().getUpstreamBytesMeter()->addWireBytesSent(early_data_buffer_.length());
     upstream_->encodeData(early_data_buffer_, early_data_end_stream_);
     ASSERT(0 == early_data_buffer_.length());

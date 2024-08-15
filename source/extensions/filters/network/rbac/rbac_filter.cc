@@ -91,18 +91,6 @@ Network::FilterStatus RoleBasedAccessControlFilter::onData(Buffer::Instance&, bo
 
   const auto connection_id = callbacks_->connection().id();
   ENVOY_LOG(debug, "rbac connection id: {}", connection_id);
-  const auto* filter_state = callbacks_->connection().streamInfo().filterState()->getDataReadOnlyGeneric("DOWNSTREAM_IDENTITY");
-  if (filter_state != nullptr) {
-    const auto string_value = filter_state->serializeAsString();
-    if (string_value) {
-      ENVOY_LOG(debug, "filter state downstream identity: {}", *string_value);
-    }
-    else {
-      ENVOY_LOG(debug, "filter state downstream identity: empty");
-    }
-  } else {
-    ENVOY_LOG(debug, "filter state downstream identity: not found");
-  }
 
   std::string log_policy_id = "none";
   // When the enforcement type is continuous always do the RBAC checks. If it is a one time check,
@@ -143,16 +131,9 @@ Network::FilterStatus RoleBasedAccessControlFilter::onData(Buffer::Instance&, bo
 
 Network::FilterStatus RoleBasedAccessControlFilter::onNewConnection() {
     // Stop iteration onNewConnection()
-    if (!callbacks_->connection().ssl()) {
-      ENVOY_LOG(debug, "RBAC onNewConnection is called. Connection ID: {}. Connection is not ssl", callbacks_->connection().id());
-      //return Network::FilterStatus::Continue;
-    } else {
-      // Otherwise we need to wait for handshake to be complete before proceeding.
-      ENVOY_LOG(debug, "RBAC onNewConnection is called. Connection ID: {}. Connection is ssl", callbacks_->connection().id());
-      //return Network::FilterStatus::StopIteration;
-    }
+    ENVOY_LOG(debug, "RBAC onNewConnection is called. Connection ID: {}. Connection is not ssl", callbacks_->connection().id());
 
-    return Network::FilterStatus::Continue;
+  return Network::FilterStatus::Continue;
 }
 
 void RoleBasedAccessControlFilter::onEvent(Network::ConnectionEvent event) {

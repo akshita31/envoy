@@ -88,6 +88,8 @@ Filter::Filter(const ConfigSharedPtr& config)
 
 void Filter::initializeReadFilterCallbacks(Network::ReadFilterCallbacks& callbacks) {
     cb_ = &callbacks;
+    // log
+    ENVOY_LOG(debug, "Custom TLS Inspector: initializeReadFilterCallbacks. Setting receive");
     cb_->connection().streamInfo().filterState()->setData(
           "envoy.tcp_proxy.receive_before_connect",
           std::make_unique<StreamInfo::BoolAccessorImpl>(true),
