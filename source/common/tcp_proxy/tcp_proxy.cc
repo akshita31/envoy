@@ -784,6 +784,7 @@ Network::FilterStatus Filter::onData(Buffer::Instance& data, bool end_stream) {
     ENVOY_CONN_LOG(debug, "buffering {} bytes as upstream connection is not established yet", read_callbacks_->connection(), data.length());
     early_data_buffer_.move(data);
     read_callbacks_->connection().readDisable(true);
+    config_->stats().early_data_received_count_total_.inc();
     if (!early_data_end_stream_) {
       early_data_end_stream_ = end_stream;
     }

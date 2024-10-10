@@ -1798,6 +1798,7 @@ TEST_P(TcpProxyReceiveBeforeConnectIntegrationTest, ReceiveBeforeConnectEarlyDat
   ASSERT_FALSE(fake_upstreams_[0]->waitForRawConnection(fake_upstream_connection));
 
   ASSERT_TRUE(tcp_client->write("world"));
+  test_server_->waitForCounterEq("tcp.tcpproxy_stats.early_data_received_count_total", 1);
   ASSERT_TRUE(fake_upstreams_[0]->waitForRawConnection(fake_upstream_connection));
   // Once the connection is established, the early data will be flushed to the upstream.
   ASSERT_TRUE(fake_upstream_connection->waitForData(10));
@@ -1812,8 +1813,6 @@ TEST_P(TcpProxyReceiveBeforeConnectIntegrationTest, UpstreamBufferHighWatermark)
   config_helper_.setBufferLimits(1024, 1024);
   std::string data(1024 * 16, 'a');
 
-  // split data
-
   initialize();
   FakeRawConnectionPtr fake_upstream_connection;
   IntegrationTcpClientPtr tcp_client = makeTcpConnection(lookupPort("tcp_proxy"));
@@ -1823,6 +1822,7 @@ TEST_P(TcpProxyReceiveBeforeConnectIntegrationTest, UpstreamBufferHighWatermark)
   ASSERT_FALSE(fake_upstreams_[0]->waitForRawConnection(fake_upstream_connection));
 
   ASSERT_TRUE(tcp_client->write(data.substr(1024)));
+  test_server_->waitForCounterEq("tcp.tcpproxy_stats.early_data_received_count_total", 1);
   ASSERT_TRUE(fake_upstreams_[0]->waitForRawConnection(fake_upstream_connection));
   // Once the connection is established, the early data will be flushed to the upstream.
   ASSERT_TRUE(fake_upstream_connection->waitForData(1024*16));
